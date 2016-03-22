@@ -79,9 +79,9 @@ function adyax_test_field_widget_form(&$form, &$form_state, $field, $instance, $
 }
 
 /**
- * Implements hook_field_validate().
+ * Implements hook_field_presave().
  */
-function adyax_test_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+function adyax_test_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
   if ($field['type'] == 'vimeo_video') {
     foreach ($items as $key => $item) {
       if (!empty($item['vimeo_id'])) {
@@ -90,8 +90,22 @@ function adyax_test_field_validate($entity_type, $entity, $field, $instance, $la
         if (is_object($data) && !empty($data->video_id)) {
           $items[$key]['vimeo_id'] = $data->video_id;
         }
-        else {
-          $errors[$field['field_name']][$langcode][$key][] = [
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_validate().
+ */
+function adyax_test_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+  if ($field['type'] == 'vimeo_video') {
+    foreach ($items as $key => $item) {
+      if (!empty($item['vimeo_id'])) {
+        $data = adyax_test_get_vimeo_video($item['vimeo_id']);
+
+        if (!is_object($data) || empty($data->video_id)) {
+          $errors[] = [
             'error' => t("Invalid url, video doesn't exist."),
           ];
         }
@@ -146,7 +160,7 @@ function adyax_test_field_formatter_view($entity_type, $entity, $field, $instanc
         $idClass = "vimeo-video-{$item['vimeo_id']}";
         if (is_object($data) && !empty($data->video_id)) {
           $element[] = [
-            '#theme' => 'container',
+            '#type' => 'container',
             '#attributes' => [
               'class' => ['vimeo-video-wrapper', $idClass],
             ],
@@ -243,13 +257,14 @@ function adyax_test_vimeo_render_callback($subtype, $conf, $args, $context) {
 
   if (!empty($nids)) {
     foreach (node_load_multiple($nids) as $node) {
+      $nodeView = node_view($node);
       $result->content[$node->nid] = [
         '#theme' => 'html_tag',
         '#tag' => 'div',
         '#attributes' => [
           'class' => ['node-wrapper', "node-{$node->nid}", "node-type-{$node->type}"],
         ],
-        '#value' => drupal_render(node_view($node)),
+        '#value' => drupal_render($nodeView),
       ];
     }
   }
@@ -271,7 +286,11 @@ function adyax_test_vimeo_render_callback($subtype, $conf, $args, $context) {
  * Edit form for vimeo content type.
  */
 function adyax_test_vimeo_edit_form($form, &$form_state) {
-  $form_state['node_types'] = array_keys(node_type_get_types());
+  $form_state['node_types'] = [];
+  foreach (node_type_get_types() as $type => $data) {
+    $form_state['node_types'][$type] = $data->name;
+  }
+
   $form_state['form_fields'] = [
     'node_type',
     'count',

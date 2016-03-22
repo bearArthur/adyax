@@ -28,8 +28,8 @@
       <file leaf-file-name="adyax_test.module" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/sites/all/modules/custom/adyax_test/adyax_test.module">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.5889571">
-              <caret line="208" column="22" selection-start-line="208" selection-start-column="22" selection-end-line="208" selection-end-column="22" />
+            <state vertical-scroll-proportion="0.44376278">
+              <caret line="204" column="3" selection-start-line="204" selection-start-column="3" selection-end-line="204" selection-end-column="3" />
               <folding>
                 <element signature="e#7#45#0#PHP" expanded="true" />
               </folding>
@@ -393,14 +393,7 @@
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="php">
-          <url>file://$PROJECT_DIR$/sites/all/modules/custom/adyax_test/adyax_test.module</url>
-          <line>226</line>
-          <option name="timeStamp" value="22" />
-        </line-breakpoint>
-      </breakpoints>
-      <option name="time" value="24" />
+      <option name="time" value="31" />
     </breakpoint-manager>
     <watches-manager />
   </component>
@@ -535,8 +528,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/sites/all/modules/custom/adyax_test/adyax_test.module">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.5889571">
-          <caret line="208" column="22" selection-start-line="208" selection-start-column="22" selection-end-line="208" selection-end-column="22" />
+        <state vertical-scroll-proportion="0.44376278">
+          <caret line="204" column="3" selection-start-line="204" selection-start-column="3" selection-end-line="204" selection-end-column="3" />
           <folding>
             <element signature="e#7#45#0#PHP" expanded="true" />
           </folding>
