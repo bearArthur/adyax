@@ -1,0 +1,6 @@
+name = Adyax Test
+description = Contains test task.
+package = Custom
+core = 7.x
+
+files[] = adyax_test.field.inc

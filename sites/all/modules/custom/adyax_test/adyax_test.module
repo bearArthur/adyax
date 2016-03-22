@@ -1,0 +1,323 @@
+<?php
+
+/**
+ * @file:
+ *  Main module file
+ */
+
+/**
+ * Vimeo base url.
+ */
+define('VIMEO_BASE_URL', 'https://vimeo.com');
+
+/**
+ * Vimeo oEmbed url.
+ */
+define('OEMBED_URL', VIMEO_BASE_URL . '/api/oembed.json');
+
+/**
+ * Default count of items in vimeo content type.
+ */
+define('VIMEO_EDIT_FORM_DEFAULT_COUNT', 3);
+
+/**
+ * Implements hook_ctools_plugin_directory().
+ */
+function adyax_test_ctools_plugin_directory($owner, $plugin_type) {
+  if ($owner == 'ctools' && $plugin_type == 'content_types') {
+    return 'plugins/ctools/content_types';
+  }
+}
+
+/**
+ * Implements hook_field_info().
+ */
+function adyax_test_field_info() {
+  $info = [];
+
+  $info['vimeo_video'] = [
+    'label' => t('Vimeo video'),
+    'description' => t('Field stored vimeo video id and embeds it'),
+    'default_widget' => 'vimeo_video_widget',
+    'default_formatter' => 'vimeo_video_formatter',
+  ];
+
+  return $info;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function adyax_test_field_widget_info() {
+  $info = [];
+
+  $info['vimeo_video_widget'] = [
+    'label' => t('Vimeo link'),
+    'field types' => ['vimeo_video'],
+  ];
+
+  return $info;
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function adyax_test_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $element = [];
+
+  switch ($instance['widget']['type']) {
+    case 'vimeo_video_widget':
+      $element['vimeo_id'] = [
+        '#type' => 'urlfield',
+        '#title' => t('Video link'),
+        '#description' => t('Link to vimeo video. Example: http://vimeo.com/borisseewald/momentum or http://vimeo.com/67025679'),
+      ];
+      break;
+  }
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_validate().
+ */
+function adyax_test_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+  if ($field['type'] == 'vimeo_video') {
+    foreach ($items as $key => $item) {
+      if (!empty($item['vimeo_id'])) {
+        $data = adyax_test_get_vimeo_video($item['vimeo_id']);
+
+        if (is_object($data) && !empty($data->video_id)) {
+          $items[$key]['vimeo_id'] = $data->video_id;
+        }
+        else {
+          $errors[$field['field_name']][$langcode][$key][] = [
+            'error' => t("Invalid url, video doesn't exist."),
+          ];
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_is_empty().
+ */
+function adyax_test_field_is_empty($item, $field) {
+  if (empty($item['vimeo_id'])) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function adyax_test_field_formatter_info() {
+  $info = [];
+
+  $info['vimeo_video_formatter'] = [
+    'label' => t('Vimeo video'),
+    'field types' => ['vimeo_video'],
+  ];
+
+  return $info;
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function adyax_test_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = [];
+
+  switch ($display['type']) {
+    case 'vimeo_video_formatter':
+      $element = [
+        '#type' => 'container',
+        '#attributes' => [
+          'class' => ['field-vimeo-video-wrapper'],
+        ],
+      ];
+
+      foreach ($items as $item) {
+        $data = adyax_test_get_vimeo_video($item['vimeo_id']);
+
+        $idClass = "vimeo-video-{$item['vimeo_id']}";
+        if (is_object($data) && !empty($data->video_id)) {
+          $element[] = [
+            '#theme' => 'container',
+            '#attributes' => [
+              'class' => ['vimeo-video-wrapper', $idClass],
+            ],
+            'video' => [
+              '#theme' => 'html_tag',
+              '#tag' => 'div',
+              '#attributes' => [
+                'class' => ['vimeo-video'],
+              ],
+              '#value' => $data->html,
+            ],
+            'link' => [
+              '#theme' => 'link',
+              '#path' => VIMEO_BASE_URL . "/{$data->video_id}",
+              '#text' => t('Open in Vimeo'),
+              '#options' => [
+                'html' => FALSE,
+                'attributes' => [
+                  'class' => ['vimeo-link'],
+                ],
+              ],
+            ],
+          ];
+        }
+        else {
+          $element[] = [
+            '#theme' => 'html_tag',
+            '#tag' => 'div',
+            '#attributes' => [
+              'class' => ['vimeo-video-error', $idClass],
+            ],
+            '#value' => t("Error occurred, please check this video's link."),
+          ];
+        }
+      }
+      break;
+  }
+
+  return $element;
+}
+
+/**
+ * Helper function to get video data.
+ *
+ * @param $url
+ * @return mixed|null
+ */
+function adyax_test_get_vimeo_video($url) {
+  $data = NULL;
+
+  if (is_numeric($url)) {
+    $url = VIMEO_BASE_URL . "/{$url}";
+  }
+
+  if ($curl = curl_init(OEMBED_URL . '?' . http_build_query(['url' => rawurldecode($url)]))) {
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, TRUE);
+    curl_setopt($curl, CURLOPT_TIMEOUT, 40);
+    curl_setopt($curl, CURLOPT_FOLLOWLOCATION, TRUE);
+    $result = curl_exec($curl);
+    curl_close($curl);
+
+    try {
+      $data = json_decode($result);
+    }
+    catch (Exception $e) {
+      watchdog('error', "Error occurs when trying to load video");
+    }
+  }
+
+  return $data;
+}
+
+/**
+ * Render callback for vimeo content type.
+ */
+function adyax_test_vimeo_render_callback($subtype, $conf, $args, $context) {
+  $result = new stdClass();
+  $result->title = t('Vimeo random videos.');
+
+  $result->content = [
+    '#type' => 'container',
+    '#attributes' => [
+      'class' => ['vimeo-ctools-content-wrapper'],
+    ],
+  ];
+
+  $nids = db_select('node', 'n')
+    ->fields('n', ['nid'])
+    ->condition('type', $conf['node_type'])
+    ->orderRandom()
+    ->range(0, $conf['count'])
+    ->execute()
+    ->fetchAllKeyed(0, 0);
+
+  if (!empty($nids)) {
+    foreach (node_load_multiple($nids) as $node) {
+      $result->content[$node->nid] = [
+        '#theme' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => [
+          'class' => ['node-wrapper', "node-{$node->nid}", "node-type-{$node->type}"],
+        ],
+        '#value' => drupal_render(node_view($node)),
+      ];
+    }
+  }
+  else {
+    $result->content['empty'] = [
+      '#theme' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'class' => ['vimeo-ctools-content-empty'],
+      ],
+      '#value' => t('There are no videos'),
+    ];
+  }
+
+  return $result;
+}
+
+/**
+ * Edit form for vimeo content type.
+ */
+function adyax_test_vimeo_edit_form($form, &$form_state) {
+  $form_state['node_types'] = array_keys(node_type_get_types());
+  $form_state['form_fields'] = [
+    'node_type',
+    'count',
+  ];
+
+  $form['node_type'] = [
+    '#type' => 'select',
+    '#title' => t('Node type.'),
+    '#description' => t('Node type to show.'),
+    '#required' => TRUE,
+    '#options' => $form_state['node_types'],
+  ];
+
+  $form['count'] = [
+    '#type' => 'numberfield',
+    '#title' => t('Count of items.'),
+    '#default_value' => !empty($form_state['conf']['count']) ? $form_state['conf']['count'] : VIMEO_EDIT_FORM_DEFAULT_COUNT,
+  ];
+
+  $form['#submit'][] = 'adyax_test_vimeo_edit_form_submit';
+  $form['#validate'][] = 'adyax_test_vimeo_edit_form_validate';
+
+  return $form;
+}
+
+/**
+ * Validate for edit form of vimeo content type.
+ */
+function adyax_test_vimeo_edit_form_validate($form, &$form_state) {
+  if (empty($form_state['node_types'][$form_state['values']['node_type']])) {
+    form_set_error('node_types', t('Invalid node type.'));
+  }
+
+  if ($form_state['values']['count'] <= 0) {
+    form_set_error('count', t('Value should be positive.'));
+  }
+}
+
+/**
+ * Submit for edit form of vimeo content type.
+ */
+function adyax_test_vimeo_edit_form_submit($form, &$form_state) {
+  foreach ($form_state['form_fields'] as $field) {
+    if (!empty($form_state['values'][$field])) {
+      $form_state['conf'][$field] = $form_state['values'][$field];
+    }
+  }
+}
+
